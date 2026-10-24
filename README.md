@@ -4,6 +4,11 @@ A deep learning pipeline that classifies oral images into six conditions, with a
 
 > **Disclaimer:** Educational project only. It is not a medical device and must not be used for diagnosis. Consult a dentist.
 
+**Live demo:** https://oral-disease-classifier-g6qwvkdawjcvqocwqtmffe.streamlit.app/
+(The app may need a minute to wake up if it has been idle.)
+
+![App screenshot](demo.png)
+
 ## Classes
 
 Calculus, Caries, Discoloration, Gingivitis, Mouth Ulcer, Hypodontia.
