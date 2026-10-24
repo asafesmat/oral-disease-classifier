@@ -29,7 +29,7 @@ Split: stratified 70/15/15 with a fixed seed (train 2,454 / validation 526 / tes
 - Augmentation (training set only): horizontal flip, small rotation, zoom.
 - Class imbalance handled with balanced class weights computed from the training set.
 - Training: Adam optimizer, early stopping and learning-rate reduction on validation loss.
-- Models compared: a custom CNN trained from scratch, and ImageNet-pretrained ResNet50, EfficientNetB0 and DenseNet121.
+-- Models compared: a custom CNN trained from scratch, and ImageNet-pretrained ResNet50, EfficientNetB0 and DenseNet121.
 - ResNet50 setup: ImageNet weights, the last 30 layers of the base network unfrozen, dropout 0.3, Adam with a learning rate of 1e-5.
 
 ## Results (test set, 527 images)
@@ -63,7 +63,7 @@ ResNet50 was deployed. Its per-class results:
 
 ## Run the app locally
 
-The trained model (~210 MB) is not stored in this repository because of GitHub's file-size limit. Place `best_oral_disease_model.keras` next to `app.py`.
+The trained model (`resnet50_clean.keras`, ~95 MB) is included in this repository. It is a weights-only copy of the fine-tuned ResNet50 and reproduces the same test accuracy (0.9583) as the original training checkpoint.
 
 ```bash
 python -m venv .venv
@@ -77,5 +77,6 @@ Tested with Python 3.12, TensorFlow 2.20.0, Keras 3.13.2 and Streamlit 1.66.1.
 ## Project structure
 
 - `app.py`: Streamlit inference app
+- `resnet50_clean.keras`: trained ResNet50 model
 - `requirements.txt`: pinned dependencies
-- `.gitignore`: excludes the environment and model files
+- `.gitignore`: excludes the virtual environment and other model files

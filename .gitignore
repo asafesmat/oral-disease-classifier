@@ -4,3 +4,6 @@ __pycache__/
 .vscode/
 *.keras
 *.h5
+!resnet50_clean.keras
+check_model.py
+measure_memory.py

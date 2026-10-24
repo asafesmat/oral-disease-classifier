@@ -1,12 +1,11 @@
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import streamlit as st
 import tensorflow as tf
 from PIL import Image, ImageOps
 
-MODEL_PATH = Path(__file__).parent / "best_oral_disease_model.keras"
+MODEL_PATH = Path(__file__).parent / "resnet50_clean.keras"
 CLASS_NAMES = ["Calculus", "Caries", "Discoloration",
                "Gingivitis", "Mouth Ulcer", "hypodontia"]
 CLASS_INFO = {
@@ -18,19 +17,42 @@ CLASS_INFO = {
     "hypodontia": "Congenitally missing teeth.",
 }
 LOW_CONFIDENCE = 0.60
-
-# Test-set results (527 images) from the training notebook
-TEST_REPORT = pd.DataFrame(
-    {
-        "Precision": [0.940, 0.952, 0.815, 0.973, 0.947, 0.973],
-        "Recall":    [0.940, 0.690, 0.846, 0.978, 1.000, 0.995],
-        "F1-score":  [0.940, 0.800, 0.830, 0.976, 0.973, 0.984],
-        "Images":    [67, 29, 26, 186, 36, 183],
-    },
-    index=CLASS_NAMES,
-)
+HIGH_CONFIDENCE = 0.85
 
 st.set_page_config(page_title="Oral Disease Classifier", page_icon="🦷", layout="wide")
+
+st.markdown(
+    """
+<style>
+.hero {
+    padding: 2rem 2.2rem; border-radius: 18px; margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%); color: white;
+}
+.hero h1 { margin: 0; font-size: 2.2rem; color: white; }
+.hero p  { margin: .5rem 0 0; opacity: .92; font-size: 1.05rem; }
+.card {
+    padding: 1.3rem 1.5rem; border-radius: 16px;
+    border: 1px solid rgba(128,128,128,.25); background: rgba(128,128,128,.07);
+}
+.pred-label { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; opacity: .7; }
+.pred-name  { font-size: 2.1rem; font-weight: 700; margin: .1rem 0 .4rem; }
+.badge {
+    display: inline-block; padding: .25rem .8rem; border-radius: 999px;
+    font-size: .85rem; font-weight: 600; color: white;
+}
+.bar-row   { margin: .55rem 0; }
+.bar-top   { display: flex; justify-content: space-between; font-size: .9rem; margin-bottom: .2rem; }
+.bar-track { height: 10px; border-radius: 999px; background: rgba(128,128,128,.25); overflow: hidden; }
+.bar-fill  { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #0f766e, #1d4ed8); }
+.chip {
+    display: inline-block; padding: .25rem .75rem; margin: .15rem .2rem .15rem 0;
+    border-radius: 999px; border: 1px solid rgba(128,128,128,.4); font-size: .85rem;
+}
+footer { visibility: hidden; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_resource(show_spinner="Loading model...")
@@ -39,6 +61,7 @@ def load_model():
         MODEL_PATH,
         custom_objects={"preprocess_input": tf.keras.applications.resnet50.preprocess_input},
         safe_mode=False,
+        compile=False,
     )
 
 
@@ -48,9 +71,27 @@ def predict(img: Image.Image) -> np.ndarray:
     return load_model().predict(x, verbose=0)[0]
 
 
+def confidence_badge(p: float) -> str:
+    if p >= HIGH_CONFIDENCE:
+        color, text = "#15803d", "High confidence"
+    elif p >= LOW_CONFIDENCE:
+        color, text = "#b45309", "Medium confidence"
+    else:
+        color, text = "#b91c1c", "Low confidence"
+    return f'<span class="badge" style="background:{color}">{text}</span>'
+
+
+def prob_bar(name: str, p: float) -> str:
+    return (
+        f'<div class="bar-row"><div class="bar-top"><span>{name}</span>'
+        f"<span><b>{p:.1%}</b></span></div>"
+        f'<div class="bar-track"><div class="bar-fill" style="width:{p * 100:.1f}%"></div></div></div>'
+    )
+
+
 # ---------------- Sidebar ----------------
 with st.sidebar:
-    st.header("About this project")
+    st.header("About")
     st.write(
         "A deep learning classifier for six oral conditions, built with "
         "transfer learning on ResNet50 (TensorFlow/Keras)."
@@ -58,22 +99,31 @@ with st.sidebar:
     c1, c2 = st.columns(2)
     c1.metric("Test accuracy", "95.8%")
     c2.metric("Macro F1", "0.917")
-    st.caption("Evaluated on a held-out test set of 527 images.")
+    st.caption("Held-out test set of 527 images.")
 
-    st.subheader("Per-class results")
-    st.dataframe(TEST_REPORT.style.format({"Precision": "{:.2f}", "Recall": "{:.2f}",
-                                           "F1-score": "{:.2f}"}))
+    st.subheader("Classes")
+    st.markdown(
+        "".join(f'<span class="chip">{c}</span>' for c in CLASS_NAMES),
+        unsafe_allow_html=True,
+    )
 
     st.subheader("Limitations")
-    st.markdown(
-        "- Trained on a single public dataset.\n"
-        "- Caries has the lowest recall (0.69): some cases are missed.\n"
-        "- High confidence does not guarantee a correct result."
+    st.caption(
+        "Trained on a single public dataset. Some cases are missed (Caries has the "
+        "lowest recall). High confidence does not guarantee a correct result."
     )
 
 # ---------------- Main page ----------------
-st.title("🦷 Oral Disease Image Classifier")
-st.caption("Educational demo only. This is not a medical diagnosis; consult a dentist.")
+st.markdown(
+    """
+<div class="hero">
+  <h1>🦷 Oral Disease Image Classifier</h1>
+  <p>Upload an oral photo and the model predicts one of six conditions.
+  Educational demo only, not a medical diagnosis. Consult a dentist.</p>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 if not MODEL_PATH.exists():
     st.error(f"Model file not found: {MODEL_PATH.name}. Place it next to app.py.")
@@ -86,31 +136,34 @@ if file is None:
     st.stop()
 
 img = Image.open(file)
-probs = predict(img)
+with st.spinner("Analyzing..."):
+    probs = predict(img)
+
 order = probs.argsort()[::-1]
 top = int(order[0])
 
-left, right = st.columns([1, 1.2], gap="large")
+left, right = st.columns([1, 1.15], gap="large")
 
 with left:
-    st.image(img, caption="Uploaded image", use_container_width=True)
+    st.image(img, caption="Uploaded image", width=440)
 
 with right:
-    st.subheader(f"Prediction: {CLASS_NAMES[top]}")
-    st.metric("Confidence", f"{probs[top]:.1%}")
-    st.write(CLASS_INFO[CLASS_NAMES[top]])
+    st.markdown(
+        f"""
+<div class="card">
+  <div class="pred-label">Prediction</div>
+  <div class="pred-name">{CLASS_NAMES[top]}</div>
+  {confidence_badge(float(probs[top]))}
+  <p style="margin:.8rem 0 0; opacity:.85">{CLASS_INFO[CLASS_NAMES[top]]}</p>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
     if probs[top] < LOW_CONFIDENCE:
-        st.warning("Low confidence. The image may be unclear or outside the classes "
-                   "this model knows. Treat this result with caution.")
+        st.warning("The image may be unclear or outside the classes this model knows. "
+                   "Treat this result with caution.")
 
-    st.markdown("**Top 3 predictions**")
-    for i in order[:3]:
-        st.progress(float(probs[i]), text=f"{CLASS_NAMES[i]}: {probs[i]:.1%}")
-
-    with st.expander("All class probabilities"):
-        st.dataframe(
-            pd.DataFrame({"Probability": probs}, index=CLASS_NAMES)
-            .sort_values("Probability", ascending=False)
-            .style.format("{:.1%}")
-        )
+    st.markdown("#### Probabilities")
+    st.markdown("".join(prob_bar(CLASS_NAMES[i], float(probs[i])) for i in order),
+                unsafe_allow_html=True)
